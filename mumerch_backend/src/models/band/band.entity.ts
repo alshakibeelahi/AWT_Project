@@ -1,9 +1,10 @@
-import { Column, Entity, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn, Unique } from "typeorm";
 import { LoginEntity } from "../login/login.entity";
 import { BandManagerEntity } from "../bandManager/bandManager.entity";
 import { ProductEntity } from "../product/product.entity";
 
 @Entity('Band')
+@Unique("UNIQUE_USER_EMAIL_CONSTRAINT", ['name'])
 export class BandEntity{
   @PrimaryGeneratedColumn('uuid')
   id: string;

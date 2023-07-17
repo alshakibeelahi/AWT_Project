@@ -13,8 +13,6 @@ export class ProductEntity {
   name:string
   @Column()
   price:number
-  @Column({nullable:true})
-  image:string
   @Column()
   revenuePercentage:number
   @ManyToOne(()=>LoginEntity, login=>login.products, {cascade:true, nullable:true})

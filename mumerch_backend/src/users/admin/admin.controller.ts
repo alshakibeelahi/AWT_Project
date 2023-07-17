@@ -554,27 +554,7 @@ export class AdminController {
 
   @Post('addProduct')
   @UsePipes(new ValidationPipe())
-  @UseInterceptors(
-    FileInterceptor('myfile', {
-      fileFilter: (req, file, cb) => {
-        if (file.originalname.match(/^.*\.(jpg|webp|png|jpeg)$/)) {
-          cb(null, true);
-        } else {
-          cb(new MulterError('LIMIT_UNEXPECTED_FILE', 'image'), false);
-        }
-      },
-      limits: { fileSize: 8000000 },
-      storage: diskStorage({
-        destination: './temp/product',
-        filename: function (req, file, cb) {
-          let name = req.body.name;
-          console.log(name);
-          cb(null, `${name}.${file.originalname.split('.')[1]}`);
-        },
-      }),
-    })
-  )
-  async addProduct(@Body() data: ProductRegistrationDTO, @Session() session, @UploadedFile() myfileobj: Express.Multer.File): Promise<ProductDTO> {
+  async addProduct(@Body() data: ProductRegistrationDTO, @Session() session): Promise<ProductDTO> {
     const proData = new ProductDTO()
     proData.login = session.user.id
     proData.name = data.name
@@ -583,17 +563,6 @@ export class AdminController {
     proData.band = data.band
     proData.category = data.category
     proData.name = data.name
-    if (!myfileobj || myfileobj.size == 0) {
-      throw new BadRequestException('Empty file');
-    }
-    const newFileName = `${data.name}.${myfileobj.originalname.split('.')[1]}`;
-    const destinationDir = './uploads/product';
-    const filePath = `${destinationDir}/${newFileName}`;
-    proData.image = newFileName
-    if (!fs.existsSync(destinationDir)) {
-      fs.mkdirSync(destinationDir, { recursive: true });
-    }
-    await fs.promises.rename(myfileobj.path, filePath);
 
     const product = await this.productService.addProduct(proData)
     if (product != null) {
@@ -623,37 +592,7 @@ export class AdminController {
   }
   @Put('updateProduct/:id')
   @UsePipes(new ValidationPipe())
-  @UseInterceptors(
-    FileInterceptor('myfile', {
-      fileFilter: (req, file, cb) => {
-        if (file.originalname.match(/^.*\.(jpg|webp|png|jpeg)$/)) {
-          cb(null, true);
-        } else {
-          cb(new MulterError('LIMIT_UNEXPECTED_FILE', 'image'), false);
-        }
-      },
-      limits: { fileSize: 8000000 },
-      storage: diskStorage({
-        destination: './temp/band',
-        filename: function (req, file, cb) {
-          let name = req.body.name;
-          console.log(name);
-          cb(null, `${name}.${file.originalname.split('.')[1]}`);
-        },
-      }),
-    })
-  )
-  async updateProduct(@Param('id') id: string, @Body() data: ProductDetailsDTO, @Session() session, @UploadedFile() myfileobj: Express.Multer.File): Promise<ProductDetailsDTO> {
-    if (myfileobj != null || myfileobj.size > 0) {
-      const newFileName = `${data.product.name}.${myfileobj.originalname.split('.')[1]}`;
-      const destinationDir = './uploads/userProfile';
-      const filePath = `${destinationDir}/${newFileName}`;
-      data.product.image = newFileName
-      if (!fs.existsSync(destinationDir)) {
-        fs.mkdirSync(destinationDir, { recursive: true });
-      }
-      await fs.promises.rename(myfileobj.path, filePath);
-    }
+  async updateProduct(@Param('id') id: string, @Body() data: ProductDetailsDTO, @Session() session): Promise<ProductDetailsDTO> {
     data.product.login = session.user.id
     return this.productDetailsService.updateProductDetails(id, data)
   }
@@ -722,13 +661,19 @@ export class AdminController {
       data.login = session.user.id
       return this.bandService.addBand(data);
     }
-    catch(err){
-      console.log(err);
-      if (err.constraint === 'UQ_5a0a8d304311b9f623885ea0601') { // '23505' is the Postgres error code for unique constraint violation
-        throw new ConflictException("Duplicate value violates unique constraint");
+    catch (error) {
+
+      if (error?.constraint === "UNIQUE_USER_EMAIL_CONSTRAINT") {
+  
+        throw new Error('User with that email already exists');
+  
       }
+  
+      throw new Error('Something went wrong');
+  
     }
-  }
+    }
+  
   @Put('updateBand/:id')
   @UsePipes(new ValidationPipe())
   @UseInterceptors(

@@ -201,7 +201,14 @@ export class EmployeeController {
     }
     return data
   }
-
+  @Get('getCategory/:name')
+  async getCategoryByName(@Param() name: string): Promise<CategoryDTO[]> {
+    const data = await this.categoryService.getCategoryByName(name)
+    if (data != undefined) {
+      throw new NotFoundException({ message: "No Category created yet" })
+    }
+    return data;
+  }
   //4.-----------------------------Product--------------------------
   @Get('getProduct')
   async getProduct(): Promise<any> {
@@ -219,14 +226,7 @@ export class EmployeeController {
     }
     return data;
   }
-  @Get('getCategory/:name')
-  async getCategoryByName(@Param() name: string): Promise<CategoryDTO[]> {
-    const data = await this.categoryService.getCategoryByName(name)
-    if (data != undefined) {
-      throw new NotFoundException({ message: "No Category created yet" })
-    }
-    return data;
-  }
+  
 
   //6.-----------------------------Band--------------------------
   @Get('getBand')
