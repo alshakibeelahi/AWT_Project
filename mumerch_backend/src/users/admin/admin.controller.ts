@@ -44,6 +44,7 @@ import { BandManagerService } from "src/models/bandManager/bandManager.service";
 import { GigManagerEntity } from "src/models/gigManager/gigManager.entity";
 import { GigManagerService } from "src/models/gigManager/gigManager.service";
 import { BandManagerDTO } from "src/models/bandManager/bandManager.dto";
+import { GigManagerDTO } from "src/models/gigManager/gigManager.dto";
 
 @Controller('admin')
 //@UseGuards(SessionAdminGuard)
@@ -63,8 +64,8 @@ export class AdminController {
     private readonly productDetailsService: ProductDetailsService,
     private readonly customerService: CustomerService,
     private readonly commonService: CommonService,
-    private readonly bandMService:BandManagerService,
-    private readonly gigMService:GigManagerService
+    private readonly bandMService: BandManagerService,
+    private readonly gigMService: GigManagerService
   ) { }
 
   //Change Password
@@ -360,7 +361,7 @@ export class AdminController {
   //4.Gig Manager(login,gig,gigManager)-------->status:true(admin approval)
   @Post('addgigmanager')
   @UsePipes(new ValidationPipe())
-  async addGigManager(@Body() data: LoginRegistrationDTO, gigId:string, @Session() session): Promise<boolean> {
+  async addGigManager(@Body() data: LoginRegistrationDTO, gigId: string, @Session() session): Promise<boolean> {
     const gig = await this.gigService.getGigById(gigId)
     if (gig == null) {
       throw new NotFoundException({ message: `No gig found with ID: ${gigId}` })
@@ -385,34 +386,35 @@ export class AdminController {
     }
   }
 
-  @Get('getgigmanager/:name')
-  async getGigManagerByName(@Param('name') name: string): Promise<LoginDTO[]> {
-    const userType = 'gigmanager'
-    const data = await this.loginService.getUserLoginInfoByName(name, userType)
+  @Get('getGigmanager/:name')
+  async getGigManagerByName(@Param('name') name: string): Promise<GigManagerEntity[]> {
+    const userType = 'Gigmanager'
+    const data = await this.gigMService.getGigManagerByUserName(name)
     if (data.length === 0) {
       throw new NotFoundException({ message: "No Admin found" })
     }
     return data;
   }
 
-  @Get('getgigmanager')
-  async getGigManager(): Promise<LoginEntity[]> {
-    const userType = 'gigmanager'
-    const data = await this.loginService.getUserLoginInfoByUserType(userType);
+  @Get('getGigmanager')
+  async getGigManager(): Promise<GigManagerEntity[]> {
+    const userType = 'Gigmanager'
+    const data = await this.gigMService.getGigManagerWithUserInfo();
     if (data.length === 0) {
-      throw new NotFoundException({ message: "No gigmanager created yet" })
+      throw new NotFoundException({ message: "No Gigmanager created yet" })
     }
     return data
   }
-  @Put('updategigmanager/:id')
+  @Put('updateGigmanager/:id')
   @UsePipes(new ValidationPipe())
-  updateGigManager(@Param('id') id: string, @Body() data: LoginRegistrationDTO): Promise<LoginDTO> {
-    data.userType = 'gigmanager'
-    return this.loginService.updateUserLoginInfo(id, data);
+  updateGigManager(@Param('id') id: string, @Body() data: GigManagerDTO, @Session() session): Promise<GigManagerEntity> {
+    data.login = session.user
+    data.gigManager.userType = 'Gigmanager'
+    return this.gigMService.updateGigManager(id, data);
   }
-  @Delete('deletegigmanager/:id')
+  @Delete('deleteGigmanager/:id')
   async deleteGigManager(@Param('id') id: string): Promise<string> {
-    const res = await this.loginService.deleteUserLoginInfo(id);
+    const res = await this.gigMService.deleteGigManager(id);
     if (res['affected'] > 0) {
       return "ID: " + id + " deleted successfully"
     }
@@ -646,7 +648,7 @@ export class AdminController {
     })
   )
   async addBand(@UploadedFile() myfileobj: Express.Multer.File, @Body() data: BandDTO, @Session() session): Promise<BandDTO> {
-    try{
+ 
       if (!myfileobj || myfileobj.size == 0) {
         throw new BadRequestException('Empty file');
       }
@@ -660,18 +662,6 @@ export class AdminController {
       await fs.promises.rename(myfileobj.path, filePath);
       data.login = session.user.id
       return this.bandService.addBand(data);
-    }
-    catch (error) {
-
-      if (error?.constraint === "UNIQUE_USER_EMAIL_CONSTRAINT") {
-  
-        throw new Error('User with that email already exists');
-  
-      }
-  
-      throw new Error('Something went wrong');
-  
-    }
     }
   
   @Put('updateBand/:id')
@@ -814,6 +804,7 @@ export class AdminController {
     else {
       const report = {}
       for (const item of data) {
+
         const id = item.productDetails.id
         const productName = item.productDetails.name
         const quantity = item.productDetails.quantity
@@ -833,6 +824,39 @@ export class AdminController {
       }
       const reportArray = Object.values(report);
       return reportArray;
+    }
+  }
+  @Get('salesreport/:month')
+  async getSalesReportForSpecificMonth(@Param('month', ParseIntPipe) month: number): Promise<any> {
+    const data = await this.orderProductsMapService.getOrderProductsMapWithReport()
+    if (data.length === 0) {
+      throw new NotFoundException({ message: "No sales data available yet" })
+    }
+    else {
+      const report = {}
+      for (const item of data) {
+        const qMon = new Date(item.date).getMonth() + 1
+        if (month === qMon) {
+          const id = item.productDetails.id
+          const productName = item.productDetails.name
+          const quantity = item.productDetails.quantity
+          const sales = item.orderQuantity
+
+          if (report.hasOwnProperty(id)) {
+            report[id].productName = productName
+            report[id].sales += sales;
+            report[id].quantity = Math.max(report[id].quantity, quantity);
+          } else {
+            report[id] = {
+              productName: productName,
+              sales: sales,
+              quantity: quantity,
+            };
+          }
+        }
+        const reportArray = Object.values(report);
+        return reportArray;
+      }
     }
   }
   //2.Monthly revenue report---------list of products sold in spcific month
